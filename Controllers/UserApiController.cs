@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using socialbackend.Entities;
@@ -8,13 +9,11 @@ using socialbackend.Data;
 
 namespace socialbackend.Controllers
 {
-    [ApiController]
-    [Route("api/[controller]")]
-    public class UserController : ControllerBase
+    public class UserApiController : BaseApiController
     {
         private readonly DataContext _context;
 
-        public UserController(DataContext context)
+        public UserApiController(DataContext context)
         {
             _context = context;
         }
@@ -26,11 +25,14 @@ namespace socialbackend.Controllers
             return users;
         }
 
+
         [HttpGet("{id}")]
         public async Task<ActionResult<AppUser>> GetUserById(int id)
         {
-            return await _context.Users.FindAsync(id);
-        }
+            var result = await _context.Users.FindAsync(id);
 
+            if (result is null) return Problem();
+            return result;
+        }
     }
 }
