@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using Microsoft.AspNetCore.Authorization;
 using socialbackend.Data;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -20,7 +21,7 @@ public class AccountController : BaseApiController
         _tokenService = tokenService;    
     }
 
-
+    
     [HttpPost("register")]
     public async Task<ActionResult<UserDto>> Register(RegisterUserDto registerUser)
     {
@@ -45,7 +46,7 @@ public class AccountController : BaseApiController
         };
     }
 
-    
+    [Authorize]
     [HttpGet]
     public async Task<ActionResult<AppUser>> GetUsers()
     {
