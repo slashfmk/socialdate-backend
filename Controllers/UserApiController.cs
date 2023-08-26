@@ -31,7 +31,7 @@ namespace socialbackend.Controllers
         {
             var result = await _context.Users.FindAsync(id);
 
-            if (result is null) return Problem();
+            if (result is null) return NotFound();
             return result;
         }
     }

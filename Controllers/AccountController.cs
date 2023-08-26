@@ -5,40 +5,46 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using socialbackend.Dtos;
 using socialbackend.Entities;
+using socialbackend.interfaces;
 
 namespace socialbackend.Controllers;
 
 public class AccountController : BaseApiController
 {
-
     private readonly DataContext _context;
+    private readonly ITokenService _tokenService;
 
-    public AccountController(DataContext context)
+    public AccountController(DataContext context, ITokenService tokenService)
     {
         _context = context;
+        _tokenService = tokenService;    
     }
 
 
-    [HttpPost]
-    public async Task<ActionResult<AppUser>> Register(RegisterUserDto registerUser)
+    [HttpPost("register")]
+    public async Task<ActionResult<UserDto>> Register(RegisterUserDto registerUser)
     {
-
-        if (await this.UserExists(registerUser.UserName.ToLower())) return BadRequest(new {message = "User already exists"});
+        if (await UserExists(registerUser.UserName.ToLower()))
+            return BadRequest(new { message = "User already exists" });
         using var hmac = new HMACSHA512();
 
         var user = new AppUser
         {
-            // Id = 55,
-            UserName = registerUser.UserName.ToLower(), 
+            UserName = registerUser.UserName.ToLower(),
             PasswordHash = hmac.ComputeHash(Encoding.UTF8.GetBytes(registerUser.Password)),
-            PasswordSalt = hmac.ComputeHash(Encoding.UTF8.GetBytes(registerUser.Password))
+            PasswordSalt = hmac.Key
         };
 
         await _context.AddAsync(user);
         await _context.SaveChangesAsync();
-        
-        return user;
+
+        return new UserDto
+        {
+            Username = user.UserName,
+            Token = _tokenService.CreateToken(user)
+        };
     }
+
     
     [HttpGet]
     public async Task<ActionResult<AppUser>> GetUsers()
@@ -49,7 +55,30 @@ public class AccountController : BaseApiController
 
     private async Task<bool> UserExists(string username)
     {
-        return await  _context.Users.AnyAsync(x => x.UserName == username.ToLower());;
+        return await _context.Users.AnyAsync(x => x.UserName == username.ToLower());
+        ;
     }
 
+    
+    [HttpPost("login")]
+    public async Task<ActionResult<UserDto>> LogIn(LoginDto loginDto)
+    {
+        var foundUser = await _context.Users.FirstOrDefaultAsync(x => x.UserName == loginDto.UserName);
+
+        if (foundUser is null) return Unauthorized();
+
+        using var hmac = new HMACSHA512(foundUser.PasswordSalt);
+        var computedHash = hmac.ComputeHash(Encoding.UTF8.GetBytes(loginDto.Password));
+
+        for (var i = 0; i < computedHash.Length; i++)
+            if (computedHash[i] != foundUser.PasswordHash[i])
+                return Unauthorized(new { error = "Please check your username or password" });
+
+        
+        return new UserDto
+        {
+            Username = foundUser.UserName,
+            Token = _tokenService.CreateToken(foundUser)
+        };
+    }
 }
